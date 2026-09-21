@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="ru" class="h-full w-full overflow-hidden">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Дядя_Bobby</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800;900&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Outfit', 'sans-serif'],
+                        mono: ['Space Grotesk', 'monospace'],
+                    },
+                    animation: {
+                        'pulse-glow': 'pulseGlow 3s ease-in-out infinite alternate',
+                        'spin-slow': 'spin 20s linear infinite',
+                    },
+                    keyframes: {
+                        pulseGlow: {
+                            '0%': { opacity: 0.4, transform: 'scale(0.98)' },
+                            '100%': { opacity: 0.8, transform: 'scale(1.02)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        /* Disable touch callouts & scrolling on touch devices */
+        body, html {
+            touch-action: none;
+            -webkit-user-select: none;
+            user-select: none;
+            overflow: hidden;
+            background-color: #030712;
+        }
+
+        .text-glow {
+            text-shadow: 0 0 20px rgba(244, 63, 94, 0.7),
+                         0 0 40px rgba(168, 85, 247, 0.5);
+        }
+
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Custom Brush Circle Cursor */
+        #brush-cursor {
+            pointer-events: none;
+            transition: transform 0.05s ease-out, width 0.2s ease, height 0.2s ease;
+            transform: translate(-50%, -50%);
+        }
+    </style>
+</head>
+<body class="h-full w-full relative flex flex-col justify-between text-slate-100 font-sans">
+
+    <!-- Revealed Background (Hidden under the scratchable image layer) -->
+    <div class="fixed inset-0 z-0 bg-slate-950 flex flex-col items-center justify-center overflow-hidden">
+        <!-- Glowing Orbs -->
+        <div class="absolute w-[500px] h-[500px] bg-rose-600/30 rounded-full blur-[120px] animate-pulse-glow"></div>
+        <div class="absolute w-[450px] h-[450px] bg-purple-600/25 rounded-full blur-[100px] animate-pulse-glow" style="animation-delay: 1.5s;"></div>
+        <div class="absolute w-[350px] h-[350px] bg-cyan-500/20 rounded-full blur-[90px] animate-pulse-glow" style="animation-delay: 3s;"></div>
+
+        <!-- Cyber Grid Overlay -->
+        <div class="absolute inset-0 bg-[radial-gradient(#334155_1px,transparent_1px)] [background-size:32px_32px] opacity-40"></div>
+
+        <!-- Secret Content Revealed Underneath -->
+        <div class="relative z-0 text-center px-6 flex flex-col items-center justify-center pointer-events-none">
+            <div class="w-24 h-24 mb-4 rounded-full bg-gradient-to-tr from-rose-500 to-purple-600 flex items-center justify-center shadow-lg shadow-rose-500/30 animate-spin-slow">
+                <i class="fa-solid fa-wand-magic-sparkles text-4xl text-white"></i>
+            </div>
+            <h2 class="text-5xl md:text-7xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-rose-400 via-fuchsia-300 to-cyan-300 text-glow">
+                Дядя_Bobby
+            </h2>
+            <p class="mt-3 text-slate-400 text-sm md:text-base font-mono tracking-widest uppercase">
+                ✨ Вы открыли секретный слой! ✨
+            </p>
+        </div>
+    </div>
+
+    <!-- Fullscreen Interactive Canvas (holds 'изображение.png') -->
+    <canvas id="scratchCanvas" class="fixed inset-0 z-10 touch-none cursor-none"></canvas>
+
+    <!-- Custom Cursor Circle Indicator -->
+    <div id="brush-cursor" class="fixed z-30 top-0 left-0 rounded-full border-2 border-rose-400/80 bg-rose-500/20 shadow-[0_0_15px_rgba(244,63,94,0.5)] opacity-0 transition-opacity duration-200"></div>
+
+    <!-- Glassmorphic UI Overlay -->
+    <header class="relative z-20 p-4 md:p-6 flex justify-between items-center w-full max-w-7xl mx-auto pointer-events-none">
+        <!-- Title Badge -->
+        <div class="glass-panel px-5 py-2.5 rounded-2xl flex items-center gap-3 pointer-events-auto">
+            <div class="w-3 h-3 rounded-full bg-rose-500 animate-ping"></div>
+            <h1 class="text-xl md:text-2xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-rose-400 via-fuchsia-300 to-indigo-300">
+                Дядя_Bobby
+            </h1>
+        </div>
+
+        <!-- Erased Percentage Progress Indicator -->
+        <div class="glass-panel px-4 py-2 rounded-xl flex items-center gap-2 pointer-events-auto text-xs md:text-sm font-mono text-slate-300">
+            <i class="fa-solid fa-eraser text-rose-400"></i>
+            <span>Стерто: <strong id="erase-percentage" class="text-rose-400 font-bold">0%</strong></span>
+        </div>
+    </header>
+
+    <!-- Instruction Bar (Floating Center) -->
+    <div id="instruction-banner" class="relative z-20 pointer-events-none text-center px-4 transition-opacity duration-500">
+        <div class="inline-flex items-center gap-3 glass-panel px-5 py-2.5 rounded-full text-xs md:text-sm font-medium text-slate-200 shadow-xl border border-rose-500/20">
+            <i class="fa-solid fa-hand-pointer text-rose-400 animate-bounce"></i>
+            <span>Водите курсором или пальцем, чтобы стирать картинку</span>
+        </div>
+    </div>
+
+    <!-- Bottom Controls Bar -->
+    <footer class="relative z-20 p-4 md:p-6 w-full max-w-xl mx-auto pointer-events-none">
+        <div class="glass-panel p-3 md:p-4 rounded-3xl flex items-center justify-between gap-2 md:gap-4 pointer-events-auto">
+            
+            <!-- Brush Size Picker -->
+            <div class="flex items-center gap-1 bg-slate-900/70 p-1.5 rounded-2xl border border-slate-800">
+                <button onclick="setBrushSize(25)" id="btn-brush-sm" class="brush-btn px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition-all">
+                    S
+                </button>
+                <button onclick="setBrushSize(60)" id="btn-brush-md" class="brush-btn px-3 py-1.5 rounded-xl text-xs font-semibold bg-rose-500/80 text-white shadow-md shadow-rose-500/20 transition-all">
+                    M
+                </button>
+                <button onclick="setBrushSize(110)" id="btn-brush-lg" class="brush-btn px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition-all">
+                    L
+                </button>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex items-center gap-2">
+                <!-- Clear All Button -->
+                <button onclick="clearCanvas()" class="px-3.5 py-2 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs md:text-sm font-semibold transition-all flex items-center gap-2 border border-slate-700/50">
+                    <i class="fa-solid fa-trash-can"></i>
+                    <span class="hidden sm:inline">Стереть всё</span>
+                </button>
+
+                <!-- Reset Button -->
+                <button onclick="resetCanvas()" class="px-4 py-2 rounded-2xl bg-gradient-to-r from-rose-500 to-purple-600 hover:from-rose-600 hover:to-purple-700 text-white text-xs md:text-sm font-bold transition-all shadow-lg shadow-rose-500/25 flex items-center gap-2 active:scale-95">
+                    <i class="fa-solid fa-rotate-left"></i>
+                    <span>Сбросить</span>
+                </button>
+            </div>
+
+        </div>
+    </footer>
+
+    <script>
+        const canvas = document.getElementById('scratchCanvas');
+        const ctx = canvas.getContext('2d');
+        const cursor = document.getElementById('brush-cursor');
+        const percentLabel = document.getElementById('erase-percentage');
+        const instructionBanner = document.getElementById('instruction-banner');
+
+        let isDrawing = false;
+        let lastX = 0;
+        let lastY = 0;
+        let currentBrushSize = 60;
+        let bobbyImage = new Image();
+        let isImageLoaded = false;
+        let totalPixels = 0;
+
+        bobbyImage.src = 'изображение.png';
+
+        bobbyImage.onload = () => {
+            isImageLoaded = true;
+            initCanvas();
+        };
+
+        // Fallback placeholder image if 'изображение.png' fails to load in preview
+        bobbyImage.onerror = () => {
+            bobbyImage.src = 'https://placehold.co/1200x800/0f172a/f43f5e?text=%D0%94%D1%8F%D0%B4%D1%8F_Bobby';
+            bobbyImage.onload = () => {
+                isImageLoaded = true;
+                initCanvas();
+            };
+        };
+
+        function initCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            totalPixels = canvas.width * canvas.height;
+            drawBobbyImage();
+            updateCursorSize();
+            calculateErasedPercentage();
+        }
+
+        // Draw image keeping 'cover' aspect ratio logic
+        function drawBobbyImage() {
+            if (!isImageLoaded) return;
+
+            const cw = canvas.width;
+            const ch = canvas.height;
+            const imgRatio = bobbyImage.naturalWidth / bobbyImage.naturalHeight;
+            const canvasRatio = cw / ch;
+
+            let renderW, renderH, x, y;
+
+            if (canvasRatio > imgRatio) {
+                renderW = cw;
+                renderH = cw / imgRatio;
+                x = 0;
+                y = (ch - renderH) / 2;
+            } else {
+                renderH = ch;
+                renderW = ch * imgRatio;
+                x = (cw - renderW) / 2;
+                y = 0;
+            }
+
+            ctx.save();
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.drawImage(bobbyImage, x, y, renderW, renderH);
+            ctx.restore();
+        }
+
+        function getCoordinates(e) {
+            if (e.touches && e.touches.length > 0) {
+                return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            }
+            return { x: e.clientX, y: e.clientY };
+        }
+
+        function startScratching(e) {
+            isDrawing = true;
+            const { x, y } = getCoordinates(e);
+            lastX = x;
+            lastY = y;
+            scratchLine(x, y);
+
+            // Hide banner after first scratch
+            if (instructionBanner) {
+                instructionBanner.style.opacity = '0';
+            }
+        }
+
+        function scratchLine(x, y) {
+            if (!isDrawing) return;
+
+            ctx.save();
+            ctx.globalCompositeOperation = 'destination-out';
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(x, y);
+            ctx.lineWidth = currentBrushSize;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.stroke();
+            ctx.restore();
+
+            lastX = x;
+            lastY = y;
+        }
+
+        function stopScratching() {
+            if (isDrawing) {
+                isDrawing = false;
+                calculateErasedPercentage();
+            }
+        }
+
+        // Mouse Events
+        window.addEventListener('mousedown', (e) => {
+            if (e.target === canvas) startScratching(e);
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            const { x, y } = getCoordinates(e);
+
+            // Update custom cursor position
+            cursor.style.left = `${x}px`;
+            cursor.style.top = `${y}px`;
+            cursor.style.opacity = '1';
+
+            if (isDrawing) {
+                scratchLine(x, y);
+            }
+        });
+
+        window.addEventListener('mouseup', stopScratching);
+        window.addEventListener('mouseleave', () => {
+            stopScratching();
+            cursor.style.opacity = '0';
+        });
+
+        // Touch Events (Mobile)
+        window.addEventListener('touchstart', (e) => {
+            if (e.target === canvas) {
+                startScratching(e);
+                const { x, y } = getCoordinates(e);
+                cursor.style.left = `${x}px`;
+                cursor.style.top = `${y}px`;
+                cursor.style.opacity = '1';
+            }
+        }, { passive: true });
+
+        window.addEventListener('touchmove', (e) => {
+            const { x, y } = getCoordinates(e);
+            cursor.style.left = `${x}px`;
+            cursor.style.top = `${y}px`;
+
+            if (isDrawing) {
+                scratchLine(x, y);
+            }
+        }, { passive: true });
+
+        window.addEventListener('touchend', () => {
+            stopScratching();
+            cursor.style.opacity = '0';
+        });
+
+        function setBrushSize(size) {
+            currentBrushSize = size;
+            updateCursorSize();
+
+            // Toggle active button style
+            document.querySelectorAll('.brush-btn').forEach(btn => {
+                btn.className = 'brush-btn px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition-all';
+            });
+
+            if (size === 25) document.getElementById('btn-brush-sm').className = 'brush-btn px-3 py-1.5 rounded-xl text-xs font-semibold bg-rose-500/80 text-white shadow-md shadow-rose-500/20 transition-all';
+            if (size === 60) document.getElementById('btn-brush-md').className = 'brush-btn px-3 py-1.5 rounded-xl text-xs font-semibold bg-rose-500/80 text-white shadow-md shadow-rose-500/20 transition-all';
+            if (size === 110) document.getElementById('btn-brush-lg').className = 'brush-btn px-3 py-1.5 rounded-xl text-xs font-semibold bg-rose-500/80 text-white shadow-md shadow-rose-500/20 transition-all';
+        }
+
+        function updateCursorSize() {
+            cursor.style.width = `${currentBrushSize}px`;
+            cursor.style.height = `${currentBrushSize}px`;
+        }
+
+        // Reset canvas back to full image
+        function resetCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawBobbyImage();
+            calculateErasedPercentage();
+            if (instructionBanner) {
+                instructionBanner.style.opacity = '1';
+            }
+        }
+
+        // Erase entire canvas
+        function clearCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            calculateErasedPercentage();
+        }
+
+        // Calculate transparent pixel percentage
+        function calculateErasedPercentage() {
+            try {
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const pixels = imageData.data;
+                let transparentCount = 0;
+
+                // Sample every 16th pixel for performance
+                for (let i = 3; i < pixels.length; i += 64) {
+                    if (pixels[i] === 0) {
+                        transparentCount++;
+                    }
+                }
+
+                const totalSampled = pixels.length / 64;
+                const percentage = Math.round((transparentCount / totalSampled) * 100);
+                percentLabel.textContent = `${percentage}%`;
+            } catch (e) {
+                percentLabel.textContent = `—`;
+            }
+        }
+
+        let resizeTimeout;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                initCanvas();
+            }, 200);
+        });
+    </script>
+</body>
+</html>
