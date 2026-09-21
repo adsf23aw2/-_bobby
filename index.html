@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html lang="ru" class="h-full w-full overflow-hidden">
+<html lang="ru" class="h-full w-full overflow-hidden select-none">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Дядя_Bobby</title>
+    <title>Дядя_Bobby — Интерактивный Холст</title>
+
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome Icons -->
@@ -11,8 +12,8 @@
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800;900&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
-    
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800;900&family=Space+Grotesk:wght@700;900&display=swap" rel="stylesheet">
+
     <script>
         tailwind.config = {
             theme: {
@@ -23,368 +24,776 @@
                     },
                     animation: {
                         'pulse-glow': 'pulseGlow 3s ease-in-out infinite alternate',
-                        'spin-slow': 'spin 20s linear infinite',
+                        'spin-slow': 'spin 18s linear infinite',
+                        'float': 'float 4s ease-in-out infinite',
                     },
                     keyframes: {
                         pulseGlow: {
-                            '0%': { opacity: 0.4, transform: 'scale(0.98)' },
-                            '100%': { opacity: 0.8, transform: 'scale(1.02)' },
+                            '0%': { opacity: 0.4, transform: 'scale(0.96)' },
+                            '100%': { opacity: 0.85, transform: 'scale(1.04)' },
+                        },
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0px)' },
+                            '50%': { transform: 'translateY(-10px)' },
                         }
                     }
                 }
             }
         }
     </script>
-    
+
     <style>
-        /* Disable touch callouts & scrolling on touch devices */
         body, html {
             touch-action: none;
             -webkit-user-select: none;
             user-select: none;
             overflow: hidden;
             background-color: #030712;
+            color: #f8fafc;
+        }
+
+        /* Glassmorphism utility styles */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
         }
 
         .text-glow {
-            text-shadow: 0 0 20px rgba(244, 63, 94, 0.7),
-                         0 0 40px rgba(168, 85, 247, 0.5);
+            text-shadow: 0 0 25px rgba(244, 63, 94, 0.8),
+                         0 0 50px rgba(168, 85, 247, 0.6);
         }
 
-        .glass-panel {
-            background: rgba(15, 23, 42, 0.65);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
-        }
-
-        /* Custom Brush Circle Cursor */
+        /* Custom brush indicator */
         #brush-cursor {
             pointer-events: none;
-            transition: transform 0.05s ease-out, width 0.2s ease, height 0.2s ease;
             transform: translate(-50%, -50%);
+            transition: width 0.08s ease-out, height 0.08s ease-out, border-radius 0.15s ease;
+            box-shadow: 0 0 20px rgba(244, 63, 94, 0.6), inset 0 0 10px rgba(244, 63, 94, 0.3);
+        }
+
+        /* Star shape clip path for cursor */
+        .shape-star {
+            clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+            border-radius: 0 !important;
+        }
+
+        /* Styling range slider */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: #f43f5e;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(244, 63, 94, 0.8);
+            margin-top: -6px;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 8px;
+            cursor: pointer;
+            background: #1e293b;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
     </style>
 </head>
-<body class="h-full w-full relative flex flex-col justify-between text-slate-100 font-sans">
+<body class="h-full w-full relative flex flex-col justify-between">
 
-    <!-- Revealed Background (Hidden under the scratchable image layer) -->
-    <div class="fixed inset-0 z-0 bg-slate-950 flex flex-col items-center justify-center overflow-hidden">
-        <!-- Glowing Orbs -->
-        <div class="absolute w-[500px] h-[500px] bg-rose-600/30 rounded-full blur-[120px] animate-pulse-glow"></div>
-        <div class="absolute w-[450px] h-[450px] bg-purple-600/25 rounded-full blur-[100px] animate-pulse-glow" style="animation-delay: 1.5s;"></div>
-        <div class="absolute w-[350px] h-[350px] bg-cyan-500/20 rounded-full blur-[90px] animate-pulse-glow" style="animation-delay: 3s;"></div>
+    <!-- Secret Layer 1: Canvas Background Animation (Matrix / Cyberpunk / Gold) -->
+    <canvas id="bgCanvas" class="fixed inset-0 z-0"></canvas>
 
-        <!-- Cyber Grid Overlay -->
-        <div class="absolute inset-0 bg-[radial-gradient(#334155_1px,transparent_1px)] [background-size:32px_32px] opacity-40"></div>
-
-        <!-- Secret Content Revealed Underneath -->
-        <div class="relative z-0 text-center px-6 flex flex-col items-center justify-center pointer-events-none">
-            <div class="w-24 h-24 mb-4 rounded-full bg-gradient-to-tr from-rose-500 to-purple-600 flex items-center justify-center shadow-lg shadow-rose-500/30 animate-spin-slow">
-                <i class="fa-solid fa-wand-magic-sparkles text-4xl text-white"></i>
-            </div>
-            <h2 class="text-5xl md:text-7xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-rose-400 via-fuchsia-300 to-cyan-300 text-glow">
-                Дядя_Bobby
-            </h2>
-            <p class="mt-3 text-slate-400 text-sm md:text-base font-mono tracking-widest uppercase">
-                ✨ Вы открыли секретный слой! ✨
-            </p>
+    <!-- Center Secret Badge Text -->
+    <div class="fixed inset-0 z-0 flex flex-col items-center justify-center pointer-events-none p-6 text-center">
+        <div class="w-24 h-24 mb-4 rounded-full bg-gradient-to-tr from-rose-500 via-fuchsia-600 to-indigo-600 flex items-center justify-center shadow-2xl shadow-rose-500/40 animate-spin-slow">
+            <i class="fa-solid fa-crown text-4xl text-white"></i>
         </div>
+        <h2 class="text-6xl md:text-8xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-rose-400 via-fuchsia-300 to-cyan-300 text-glow animate-float">
+            Дядя_Bobby
+        </h2>
+        <p class="mt-3 text-slate-300 font-mono text-sm md:text-base tracking-widest uppercase bg-slate-900/80 px-4 py-1.5 rounded-full border border-rose-500/30">
+            ✨ Секретная зона открыта! ✨
+        </p>
     </div>
 
-    <!-- Fullscreen Interactive Canvas (holds 'изображение.png') -->
+    <!-- Layer 2: Main Scratchable Image Canvas -->
     <canvas id="scratchCanvas" class="fixed inset-0 z-10 touch-none cursor-none"></canvas>
 
-    <!-- Custom Cursor Circle Indicator -->
-    <div id="brush-cursor" class="fixed z-30 top-0 left-0 rounded-full border-2 border-rose-400/80 bg-rose-500/20 shadow-[0_0_15px_rgba(244,63,94,0.5)] opacity-0 transition-opacity duration-200"></div>
+    <!-- Layer 3: Particle FX Canvas (Sparks & Confetti) -->
+    <canvas id="fxCanvas" class="fixed inset-0 z-20 pointer-events-none touch-none"></canvas>
 
-    <!-- Glassmorphic UI Overlay -->
-    <header class="relative z-20 p-4 md:p-6 flex justify-between items-center w-full max-w-7xl mx-auto pointer-events-none">
-        <!-- Title Badge -->
-        <div class="glass-panel px-5 py-2.5 rounded-2xl flex items-center gap-3 pointer-events-auto">
-            <div class="w-3 h-3 rounded-full bg-rose-500 animate-ping"></div>
-            <h1 class="text-xl md:text-2xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-rose-400 via-fuchsia-300 to-indigo-300">
+    <!-- Custom Brush Cursor Indicator -->
+    <div id="brush-cursor" class="fixed z-40 top-0 left-0 border-2 border-rose-400 bg-rose-500/20 opacity-0 pointer-events-none transition-opacity duration-200 rounded-full"></div>
+
+    <header class="relative z-30 p-4 md:p-6 flex justify-between items-center w-full max-w-7xl mx-auto pointer-events-none">
+        <!-- Logo & Title -->
+        <div class="glass-panel px-4 py-2.5 rounded-2xl flex items-center gap-3 pointer-events-auto">
+            <div class="w-3.5 h-3.5 rounded-full bg-rose-500 animate-ping"></div>
+            <h1 class="text-lg md:text-2xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-rose-400 via-fuchsia-300 to-indigo-300">
                 Дядя_Bobby
             </h1>
         </div>
 
-        <!-- Erased Percentage Progress Indicator -->
-        <div class="glass-panel px-4 py-2 rounded-xl flex items-center gap-2 pointer-events-auto text-xs md:text-sm font-mono text-slate-300">
-            <i class="fa-solid fa-eraser text-rose-400"></i>
-            <span>Стерто: <strong id="erase-percentage" class="text-rose-400 font-bold">0%</strong></span>
+        <!-- Top Right Indicators & Audio Toggle -->
+        <div class="flex items-center gap-2 md:gap-3 pointer-events-auto">
+            <!-- Background Theme Switcher Dropdown -->
+            <div class="glass-panel px-3 py-2 rounded-2xl flex items-center gap-2 text-xs md:text-sm">
+                <i class="fa-solid fa-palette text-purple-400"></i>
+                <select id="bg-theme-select" onchange="changeBgTheme(this.value)" class="bg-transparent text-slate-200 outline-none cursor-pointer font-medium">
+                    <option value="cyberpunk" class="bg-slate-900 text-slate-100">Неоновый Киберпанк</option>
+                    <option value="matrix" class="bg-slate-900 text-slate-100">Дождь Матрицы</option>
+                    <option value="gold" class="bg-slate-900 text-slate-100">Золотые Искры</option>
+                </select>
+            </div>
+
+            <!-- Sound Scratch Toggle Button -->
+            <button id="sound-btn" onclick="toggleSound()" class="glass-panel w-10 h-10 md:w-11 md:h-11 rounded-2xl flex items-center justify-center text-slate-300 hover:text-white transition-all active:scale-95">
+                <i id="sound-icon" class="fa-solid fa-volume-xmark text-slate-400"></i>
+            </button>
+
+            <!-- Erased Percentage Indicator -->
+            <div class="glass-panel px-3.5 py-2 rounded-2xl flex items-center gap-2 text-xs md:text-sm font-mono text-slate-200">
+                <i class="fa-solid fa-eraser text-rose-400"></i>
+                <span>Стерто: <strong id="erase-percentage" class="text-rose-400 font-extrabold">0%</strong></span>
+            </div>
         </div>
     </header>
 
-    <!-- Instruction Bar (Floating Center) -->
-    <div id="instruction-banner" class="relative z-20 pointer-events-none text-center px-4 transition-opacity duration-500">
-        <div class="inline-flex items-center gap-3 glass-panel px-5 py-2.5 rounded-full text-xs md:text-sm font-medium text-slate-200 shadow-xl border border-rose-500/20">
-            <i class="fa-solid fa-hand-pointer text-rose-400 animate-bounce"></i>
+    <!-- Floating Instruction Banner -->
+    <div id="instruction-banner" class="relative z-30 pointer-events-none text-center px-4 transition-opacity duration-500">
+        <div class="inline-flex items-center gap-3 glass-panel px-5 py-2.5 rounded-full text-xs md:text-sm font-medium text-slate-200 shadow-2xl border border-rose-500/30">
+            <i class="fa-solid fa-wand-magic-sparkles text-rose-400 animate-bounce"></i>
             <span>Водите курсором или пальцем, чтобы стирать картинку</span>
         </div>
     </div>
 
-    <!-- Bottom Controls Bar -->
-    <footer class="relative z-20 p-4 md:p-6 w-full max-w-xl mx-auto pointer-events-none">
-        <div class="glass-panel p-3 md:p-4 rounded-3xl flex items-center justify-between gap-2 md:gap-4 pointer-events-auto">
-            
-            <!-- Brush Size Picker -->
-            <div class="flex items-center gap-1 bg-slate-900/70 p-1.5 rounded-2xl border border-slate-800">
-                <button onclick="setBrushSize(25)" id="btn-brush-sm" class="brush-btn px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition-all">
-                    S
-                </button>
-                <button onclick="setBrushSize(60)" id="btn-brush-md" class="brush-btn px-3 py-1.5 rounded-xl text-xs font-semibold bg-rose-500/80 text-white shadow-md shadow-rose-500/20 transition-all">
-                    M
-                </button>
-                <button onclick="setBrushSize(110)" id="btn-brush-lg" class="brush-btn px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition-all">
-                    L
-                </button>
+    <footer class="relative z-30 p-4 md:p-6 w-full max-w-2xl mx-auto pointer-events-none">
+        <div class="glass-panel p-4 rounded-3xl flex flex-col md:flex-row items-center justify-between gap-4 pointer-events-auto">
+
+            <!-- Brush Size Slider -->
+            <div class="flex items-center gap-3 w-full md:w-1/2">
+                <i class="fa-solid fa-paint-brush text-rose-400 text-sm"></i>
+                <input type="range" id="brush-slider" min="10" max="200" value="60" oninput="updateBrushSize(this.value)" class="w-full">
+                <span id="brush-size-val" class="font-mono text-xs font-bold text-rose-400 min-w-[42px] text-right">60px</span>
             </div>
 
-            <!-- Action Buttons -->
-            <div class="flex items-center gap-2">
-                <!-- Clear All Button -->
-                <button onclick="clearCanvas()" class="px-3.5 py-2 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs md:text-sm font-semibold transition-all flex items-center gap-2 border border-slate-700/50">
-                    <i class="fa-solid fa-trash-can"></i>
-                    <span class="hidden sm:inline">Стереть всё</span>
-                </button>
+            <!-- Shape Pickers -->
+            <div class="flex items-center justify-between gap-2 w-full md:w-auto">
+                <div class="flex items-center gap-1 bg-slate-900/80 p-1 rounded-2xl border border-slate-800">
+                    <button onclick="setBrushShape('round')" id="shape-round" class="shape-btn p-2 w-9 h-9 rounded-xl flex items-center justify-center text-xs bg-rose-500 text-white shadow-md transition-all">
+                        <i class="fa-solid fa-circle"></i>
+                    </button>
+                    <button onclick="setBrushShape('square')" id="shape-square" class="shape-btn p-2 w-9 h-9 rounded-xl flex items-center justify-center text-xs text-slate-400 hover:text-white transition-all">
+                        <i class="fa-solid fa-square"></i>
+                    </button>
+                    <button onclick="setBrushShape('star')" id="shape-star" class="shape-btn p-2 w-9 h-9 rounded-xl flex items-center justify-center text-xs text-slate-400 hover:text-white transition-all">
+                        <i class="fa-solid fa-star"></i>
+                    </button>
+                </div>
 
-                <!-- Reset Button -->
-                <button onclick="resetCanvas()" class="px-4 py-2 rounded-2xl bg-gradient-to-r from-rose-500 to-purple-600 hover:from-rose-600 hover:to-purple-700 text-white text-xs md:text-sm font-bold transition-all shadow-lg shadow-rose-500/25 flex items-center gap-2 active:scale-95">
-                    <i class="fa-solid fa-rotate-left"></i>
-                    <span>Сбросить</span>
-                </button>
+                <!-- Action Buttons -->
+                <div class="flex items-center gap-2">
+                    <button onclick="clearCanvas()" class="px-3.5 py-2 rounded-2xl bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold transition-all border border-slate-700/60 flex items-center gap-1.5">
+                        <i class="fa-solid fa-trash-can"></i>
+                        <span class="hidden sm:inline">Очистить</span>
+                    </button>
+                    <button onclick="resetCanvas()" class="px-4 py-2 rounded-2xl bg-gradient-to-r from-rose-500 to-purple-600 hover:from-rose-600 hover:to-purple-700 text-white text-xs font-bold transition-all shadow-lg shadow-rose-500/30 flex items-center gap-1.5 active:scale-95">
+                        <i class="fa-solid fa-rotate-left"></i>
+                        <span>Сброс</span>
+                    </button>
+                </div>
             </div>
 
         </div>
     </footer>
 
+    <div id="victory-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md opacity-0 pointer-events-none transition-opacity duration-500">
+        <div class="glass-panel max-w-md w-full p-8 rounded-3xl text-center border-2 border-rose-500/50 shadow-2xl transform scale-95 transition-transform duration-500" id="victory-box">
+            <div class="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-tr from-amber-400 via-rose-500 to-purple-600 flex items-center justify-center shadow-lg shadow-rose-500/50 animate-bounce">
+                <i class="fa-solid fa-trophy text-4xl text-white"></i>
+            </div>
+            <h3 class="text-2xl md:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-rose-400 to-amber-300 mb-2">
+                Секрет Дяди Bobby раскрыт! 🎉
+            </h3>
+            <p class="text-slate-300 text-sm mb-6">
+                Вы полностью очистили фоновую картинку и разблокировали тайный слой!
+            </p>
+            <button onclick="closeVictoryModal()" class="w-full py-3 rounded-2xl bg-gradient-to-r from-rose-500 to-purple-600 text-white font-bold text-sm shadow-xl shadow-rose-500/30 hover:opacity-90 active:scale-95 transition-all">
+                Продолжить творчество 🚀
+            </button>
+        </div>
+    </div>
+
     <script>
-        const canvas = document.getElementById('scratchCanvas');
-        const ctx = canvas.getContext('2d');
+        /* ----------------------------------------------------
+         * 1. Global Declarations & State Management
+         * ---------------------------------------------------- */
+        const bgCanvas = document.getElementById('bgCanvas');
+        const bgCtx = bgCanvas.getContext('2d');
+        const scratchCanvas = document.getElementById('scratchCanvas');
+        const ctx = scratchCanvas.getContext('2d');
+        const fxCanvas = document.getElementById('fxCanvas');
+        const fxCtx = fxCanvas.getContext('2d');
+
         const cursor = document.getElementById('brush-cursor');
         const percentLabel = document.getElementById('erase-percentage');
         const instructionBanner = document.getElementById('instruction-banner');
+        const brushSlider = document.getElementById('brush-slider');
+        const brushValLabel = document.getElementById('brush-size-val');
 
         let isDrawing = false;
-        let lastX = 0;
-        let lastY = 0;
+        let lastX = 0, lastY = 0;
         let currentBrushSize = 60;
+        let currentBrushShape = 'round'; // 'round', 'square', 'star'
+        let currentBgTheme = 'cyberpunk'; // 'cyberpunk', 'matrix', 'gold'
+
         let bobbyImage = new Image();
         let isImageLoaded = false;
-        let totalPixels = 0;
+        let victoryTriggered = false;
 
+        // Audio API Context Variables
+        let audioCtx = null;
+        let scratchNoiseNode = null;
+        let scratchFilterNode = null;
+        let scratchGainNode = null;
+        let isSoundMuted = true;
+
+        /* ----------------------------------------------------
+         * 2. Web Audio API Scratch Synthesizer
+         * ---------------------------------------------------- */
+        function initAudio() {
+            if (audioCtx) return;
+            try {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const bufferSize = audioCtx.sampleRate * 2;
+                const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                const output = noiseBuffer.getChannelData(0);
+
+                // Generate white noise for scratch scraping sound
+                for (let i = 0; i < bufferSize; i++) {
+                    output[i] = Math.random() * 2 - 1;
+                }
+
+                scratchNoiseNode = audioCtx.createBufferSource();
+                scratchNoiseNode.buffer = noiseBuffer;
+                scratchNoiseNode.loop = true;
+
+                // Bandpass filter to model friction
+                scratchFilterNode = audioCtx.createBiquadFilter();
+                scratchFilterNode.type = 'bandpass';
+                scratchFilterNode.frequency.value = 1600;
+                scratchFilterNode.Q.value = 3.5;
+
+                scratchGainNode = audioCtx.createGain();
+                scratchGainNode.gain.value = 0;
+
+                scratchNoiseNode.connect(scratchFilterNode);
+                scratchFilterNode.connect(scratchGainNode);
+                scratchGainNode.connect(audioCtx.destination);
+                scratchNoiseNode.start();
+            } catch (e) {
+                console.log("Web Audio API not supported", e);
+            }
+        }
+
+        function toggleSound() {
+            initAudio();
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            isSoundMuted = !isSoundMuted;
+            const icon = document.getElementById('sound-icon');
+            const btn = document.getElementById('sound-btn');
+
+            if (isSoundMuted) {
+                icon.className = 'fa-solid fa-volume-xmark text-slate-400';
+                btn.classList.remove('border-rose-500/50');
+            } else {
+                icon.className = 'fa-solid fa-volume-high text-rose-400';
+                btn.classList.add('border-rose-500/50');
+            }
+        }
+
+        function playScratchSound(speed) {
+            if (isSoundMuted || !scratchGainNode || !audioCtx) return;
+            const targetGain = Math.min(0.25, Math.max(0.02, speed * 0.005));
+            scratchGainNode.gain.setTargetAtTime(targetGain, audioCtx.currentTime, 0.03);
+            scratchFilterNode.frequency.setTargetAtTime(1200 + Math.min(2000, speed * 20), audioCtx.currentTime, 0.05);
+        }
+
+        function stopScratchSound() {
+            if (!scratchGainNode || !audioCtx) return;
+            scratchGainNode.gain.setTargetAtTime(0, audioCtx.currentTime, 0.05);
+        }
+
+        function playFanfareSound() {
+            if (isSoundMuted || !audioCtx) return;
+            const now = audioCtx.currentTime;
+            const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+            notes.forEach((freq, idx) => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.value = freq;
+                gain.gain.setValueAtTime(0.2, now + idx * 0.12);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.12 + 0.5);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now + idx * 0.12);
+                osc.stop(now + idx * 0.12 + 0.5);
+            });
+        }
+
+        /* ----------------------------------------------------
+         * 3. Interactive Secret Background Canvas Engine
+         * ---------------------------------------------------- */
+        let bgParticles = [];
+        let matrixColumns = [];
+
+        function initBgCanvas() {
+            bgCanvas.width = window.innerWidth;
+            bgCanvas.height = window.innerHeight;
+            
+            // Re-init theme elements
+            bgParticles = [];
+            for (let i = 0; i < 60; i++) {
+                bgParticles.push({
+                    x: Math.random() * bgCanvas.width,
+                    y: Math.random() * bgCanvas.height,
+                    radius: Math.random() * 3 + 1,
+                    vx: (Math.random() - 0.5) * 1.5,
+                    vy: (Math.random() - 0.5) * 1.5,
+                    color: Math.random() > 0.5 ? '#f43f5e' : '#a855f7'
+                });
+            }
+
+            const colCount = Math.floor(bgCanvas.width / 20);
+            matrixColumns = Array(colCount).fill(0).map(() => Math.floor(Math.random() * -50));
+        }
+
+        function changeBgTheme(theme) {
+            currentBgTheme = theme;
+        }
+
+        function renderBgTheme() {
+            bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
+
+            if (currentBgTheme === 'cyberpunk') {
+                // Cyberpunk glowing dark gradient & particles
+                const grad = bgCtx.createRadialGradient(
+                    bgCanvas.width / 2, bgCanvas.height / 2, 100,
+                    bgCanvas.width / 2, bgCanvas.height / 2, bgCanvas.width / 1.2
+                );
+                grad.addColorStop(0, '#0f172a');
+                grad.addColorStop(1, '#020617');
+                bgCtx.fillStyle = grad;
+                bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
+
+                // Particles
+                bgParticles.forEach(p => {
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    if (p.x < 0 || p.x > bgCanvas.width) p.vx *= -1;
+                    if (p.y < 0 || p.y > bgCanvas.height) p.vy *= -1;
+
+                    bgCtx.beginPath();
+                    bgCtx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                    bgCtx.fillStyle = p.color;
+                    bgCtx.fill();
+                });
+            } else if (currentBgTheme === 'matrix') {
+                // Matrix Rain
+                bgCtx.fillStyle = 'rgba(2, 6, 23, 0.85)';
+                bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
+                bgCtx.fillStyle = '#22c55e';
+                bgCtx.font = '16px Space Grotesk';
+
+                const chars = '01DADA_BOBBY10';
+                matrixColumns.forEach((y, i) => {
+                    const char = chars[Math.floor(Math.random() * chars.length)];
+                    const x = i * 20;
+                    bgCtx.fillText(char, x, y * 20);
+                    if (y * 20 > bgCanvas.height && Math.random() > 0.975) {
+                        matrixColumns[i] = 0;
+                    }
+                    matrixColumns[i]++;
+                });
+            } else if (currentBgTheme === 'gold') {
+                // Gold Dust Sparks
+                bgCtx.fillStyle = '#090d16';
+                bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
+
+                bgParticles.forEach(p => {
+                    p.y -= Math.abs(p.vy);
+                    if (p.y < 0) p.y = bgCanvas.height;
+
+                    bgCtx.beginPath();
+                    bgCtx.arc(p.x, p.y, p.radius * 1.2, 0, Math.PI * 2);
+                    bgCtx.fillStyle = '#fbbf24';
+                    bgCtx.shadowBlur = 10;
+                    bgCtx.shadowColor = '#f59e0b';
+                    bgCtx.fill();
+                    bgCtx.shadowBlur = 0;
+                });
+            }
+
+            requestAnimationFrame(renderBgTheme);
+        }
+
+        /* ----------------------------------------------------
+         * 4. Main Scratch Canvas & Image Rendering
+         * ---------------------------------------------------- */
         bobbyImage.src = 'изображение.png';
 
         bobbyImage.onload = () => {
             isImageLoaded = true;
-            initCanvas();
+            initScratchCanvas();
         };
 
-        // Fallback placeholder image if 'изображение.png' fails to load in preview
+        // Fallback placeholder image if local file isn't placed next to index.html
         bobbyImage.onerror = () => {
             bobbyImage.src = 'https://placehold.co/1200x800/0f172a/f43f5e?text=%D0%94%D1%8F%D0%B4%D1%8F_Bobby';
             bobbyImage.onload = () => {
                 isImageLoaded = true;
-                initCanvas();
+                initScratchCanvas();
             };
         };
 
-        function initCanvas() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            totalPixels = canvas.width * canvas.height;
-            drawBobbyImage();
-            updateCursorSize();
-            calculateErasedPercentage();
+        function initScratchCanvas() {
+            scratchCanvas.width = window.innerWidth;
+            scratchCanvas.height = window.innerHeight;
+            fxCanvas.width = window.innerWidth;
+            fxCanvas.height = window.innerHeight;
+            drawMainImage();
+            calculateErasePercent();
         }
 
-        // Draw image keeping 'cover' aspect ratio logic
-        function drawBobbyImage() {
+        function drawMainImage() {
             if (!isImageLoaded) return;
-
-            const cw = canvas.width;
-            const ch = canvas.height;
+            const cw = scratchCanvas.width;
+            const ch = scratchCanvas.height;
             const imgRatio = bobbyImage.naturalWidth / bobbyImage.naturalHeight;
             const canvasRatio = cw / ch;
 
-            let renderW, renderH, x, y;
+            let rw, rh, rx, ry;
 
             if (canvasRatio > imgRatio) {
-                renderW = cw;
-                renderH = cw / imgRatio;
-                x = 0;
-                y = (ch - renderH) / 2;
+                rw = cw;
+                rh = cw / imgRatio;
+                rx = 0;
+                ry = (ch - rh) / 2;
             } else {
-                renderH = ch;
-                renderW = ch * imgRatio;
-                x = (cw - renderW) / 2;
-                y = 0;
+                rh = ch;
+                rw = ch * imgRatio;
+                rx = (cw - rw) / 2;
+                ry = 0;
             }
 
             ctx.save();
             ctx.globalCompositeOperation = 'source-over';
-            ctx.drawImage(bobbyImage, x, y, renderW, renderH);
+            ctx.drawImage(bobbyImage, rx, ry, rw, rh);
             ctx.restore();
         }
 
-        function getCoordinates(e) {
+        /* ----------------------------------------------------
+         * 5. Scratch Logic with Interpolation & Custom Shapes
+         * ---------------------------------------------------- */
+        function drawBrushStamp(cx, cy) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'destination-out';
+
+            if (currentBrushShape === 'round') {
+                ctx.beginPath();
+                ctx.arc(cx, cy, currentBrushSize / 2, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (currentBrushShape === 'square') {
+                const s = currentBrushSize;
+                ctx.fillRect(cx - s / 2, cy - s / 2, s, s);
+            } else if (currentBrushShape === 'star') {
+                drawStarShape(cx, cy, currentBrushSize / 2);
+            }
+
+            ctx.restore();
+        }
+
+        function drawStarShape(cx, cy, outerRadius) {
+            const spikes = 5;
+            const innerRadius = outerRadius / 2;
+            let rot = (Math.PI / 2) * 3;
+            let x = cx, y = cy;
+            const step = Math.PI / spikes;
+
+            ctx.beginPath();
+            ctx.moveTo(cx, cy - outerRadius);
+            for (let i = 0; i < spikes; i++) {
+                x = cx + Math.cos(rot) * outerRadius;
+                y = cy + Math.sin(rot) * outerRadius;
+                ctx.lineTo(x, y);
+                rot += step;
+
+                x = cx + Math.cos(rot) * innerRadius;
+                y = cy + Math.sin(rot) * innerRadius;
+                ctx.lineTo(x, y);
+                rot += step;
+            }
+            ctx.lineTo(cx, cy - outerRadius);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        function interpolateScratch(x1, y1, x2, y2) {
+            const dist = Math.hypot(x2 - x1, y2 - y1);
+            const angle = Math.atan2(y2 - y1, x2 - x1);
+            const step = Math.max(3, currentBrushSize / 5);
+
+            for (let d = 0; d < dist; d += step) {
+                const ix = x1 + Math.cos(angle) * d;
+                const iy = y1 + Math.sin(angle) * d;
+                drawBrushStamp(ix, iy);
+                spawnSparks(ix, iy);
+            }
+            drawBrushStamp(x2, y2);
+            spawnSparks(x2, y2);
+
+            playScratchSound(dist);
+        }
+
+        let sparkParticles = [];
+        let confettiParticles = [];
+
+        function spawnSparks(x, y) {
+            for (let i = 0; i < 2; i++) {
+                sparkParticles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 6,
+                    vy: (Math.random() - 0.5) * 6,
+                    size: Math.random() * 3 + 2,
+                    alpha: 1,
+                    color: Math.random() > 0.5 ? '#f43f5e' : '#fbbf24'
+                });
+            }
+        }
+
+        function triggerConfetti() {
+            confettiParticles = [];
+            for (let i = 0; i < 150; i++) {
+                confettiParticles.push({
+                    x: fxCanvas.width / 2,
+                    y: fxCanvas.height / 2,
+                    vx: (Math.random() - 0.5) * 16,
+                    vy: (Math.random() - 0.7) * 18,
+                    size: Math.random() * 8 + 4,
+                    color: `hsl(${Math.random() * 360}, 90%, 60%)`,
+                    rotation: Math.random() * 360,
+                    vRot: (Math.random() - 0.5) * 10
+                });
+            }
+        }
+
+        function renderFX() {
+            fxCtx.clearRect(0, 0, fxCanvas.width, fxCanvas.height);
+
+            // Render Sparks
+            sparkParticles.forEach((p, idx) => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.alpha -= 0.04;
+
+                if (p.alpha <= 0) {
+                    sparkParticles.splice(idx, 1);
+                } else {
+                    fxCtx.globalAlpha = p.alpha;
+                    fxCtx.fillStyle = p.color;
+                    fxCtx.beginPath();
+                    fxCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    fxCtx.fill();
+                }
+            });
+
+            // Render Confetti
+            confettiParticles.forEach((c, idx) => {
+                c.x += c.vx;
+                c.y += c.vy;
+                c.vy += 0.3; // Gravity
+                c.rotation += c.vRot;
+
+                if (c.y > fxCanvas.height) {
+                    confettiParticles.splice(idx, 1);
+                } else {
+                    fxCtx.save();
+                    fxCtx.translate(c.x, c.y);
+                    fxCtx.rotate((c.rotation * Math.PI) / 180);
+                    fxCtx.fillStyle = c.color;
+                    fxCtx.fillRect(-c.size / 2, -c.size / 2, c.size, c.size);
+                    fxCtx.restore();
+                }
+            });
+
+            fxCtx.globalAlpha = 1;
+            requestAnimationFrame(renderFX);
+        }
+
+        function getCoords(e) {
             if (e.touches && e.touches.length > 0) {
                 return { x: e.touches[0].clientX, y: e.touches[0].clientY };
             }
             return { x: e.clientX, y: e.clientY };
         }
 
-        function startScratching(e) {
+        function startDrawing(e) {
+            initAudio();
             isDrawing = true;
-            const { x, y } = getCoordinates(e);
+            const { x, y } = getCoords(e);
             lastX = x;
             lastY = y;
-            scratchLine(x, y);
+            drawBrushStamp(x, y);
 
-            // Hide banner after first scratch
             if (instructionBanner) {
                 instructionBanner.style.opacity = '0';
             }
         }
 
-        function scratchLine(x, y) {
-            if (!isDrawing) return;
+        function continueDrawing(e) {
+            const { x, y } = getCoords(e);
 
-            ctx.save();
-            ctx.globalCompositeOperation = 'destination-out';
-            ctx.beginPath();
-            ctx.moveTo(lastX, lastY);
-            ctx.lineTo(x, y);
-            ctx.lineWidth = currentBrushSize;
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-            ctx.stroke();
-            ctx.restore();
-
-            lastX = x;
-            lastY = y;
-        }
-
-        function stopScratching() {
-            if (isDrawing) {
-                isDrawing = false;
-                calculateErasedPercentage();
-            }
-        }
-
-        // Mouse Events
-        window.addEventListener('mousedown', (e) => {
-            if (e.target === canvas) startScratching(e);
-        });
-
-        window.addEventListener('mousemove', (e) => {
-            const { x, y } = getCoordinates(e);
-
-            // Update custom cursor position
+            // Cursor movement
             cursor.style.left = `${x}px`;
             cursor.style.top = `${y}px`;
             cursor.style.opacity = '1';
 
             if (isDrawing) {
-                scratchLine(x, y);
+                interpolateScratch(lastX, lastY, x, y);
+                lastX = x;
+                lastY = y;
             }
-        });
+        }
 
-        window.addEventListener('mouseup', stopScratching);
-        window.addEventListener('mouseleave', () => {
-            stopScratching();
-            cursor.style.opacity = '0';
-        });
-
-        // Touch Events (Mobile)
-        window.addEventListener('touchstart', (e) => {
-            if (e.target === canvas) {
-                startScratching(e);
-                const { x, y } = getCoordinates(e);
-                cursor.style.left = `${x}px`;
-                cursor.style.top = `${y}px`;
-                cursor.style.opacity = '1';
-            }
-        }, { passive: true });
-
-        window.addEventListener('touchmove', (e) => {
-            const { x, y } = getCoordinates(e);
-            cursor.style.left = `${x}px`;
-            cursor.style.top = `${y}px`;
-
+        function stopDrawing() {
             if (isDrawing) {
-                scratchLine(x, y);
+                isDrawing = false;
+                stopScratchSound();
+                calculateErasePercent();
             }
+        }
+
+        // Mouse listeners
+        scratchCanvas.addEventListener('mousedown', startDrawing);
+        window.addEventListener('mousemove', continueDrawing);
+        window.addEventListener('mouseup', stopDrawing);
+
+        // Touch listeners
+        scratchCanvas.addEventListener('touchstart', (e) => {
+            startDrawing(e);
+            continueDrawing(e);
         }, { passive: true });
+        window.addEventListener('touchmove', continueDrawing, { passive: true });
+        window.addEventListener('touchend', stopDrawing);
 
-        window.addEventListener('touchend', () => {
-            stopScratching();
-            cursor.style.opacity = '0';
-        });
-
-        function setBrushSize(size) {
-            currentBrushSize = size;
-            updateCursorSize();
-
-            // Toggle active button style
-            document.querySelectorAll('.brush-btn').forEach(btn => {
-                btn.className = 'brush-btn px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition-all';
-            });
-
-            if (size === 25) document.getElementById('btn-brush-sm').className = 'brush-btn px-3 py-1.5 rounded-xl text-xs font-semibold bg-rose-500/80 text-white shadow-md shadow-rose-500/20 transition-all';
-            if (size === 60) document.getElementById('btn-brush-md').className = 'brush-btn px-3 py-1.5 rounded-xl text-xs font-semibold bg-rose-500/80 text-white shadow-md shadow-rose-500/20 transition-all';
-            if (size === 110) document.getElementById('btn-brush-lg').className = 'brush-btn px-3 py-1.5 rounded-xl text-xs font-semibold bg-rose-500/80 text-white shadow-md shadow-rose-500/20 transition-all';
-        }
-
-        function updateCursorSize() {
-            cursor.style.width = `${currentBrushSize}px`;
-            cursor.style.height = `${currentBrushSize}px`;
-        }
-
-        // Reset canvas back to full image
-        function resetCanvas() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            drawBobbyImage();
-            calculateErasedPercentage();
-            if (instructionBanner) {
-                instructionBanner.style.opacity = '1';
-            }
-        }
-
-        // Erase entire canvas
-        function clearCanvas() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            calculateErasedPercentage();
-        }
-
-        // Calculate transparent pixel percentage
-        function calculateErasedPercentage() {
+        function calculateErasePercent() {
             try {
-                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                const pixels = imageData.data;
+                const imgData = ctx.getImageData(0, 0, scratchCanvas.width, scratchCanvas.height);
+                const pixels = imgData.data;
                 let transparentCount = 0;
+                const sampleStep = 32;
 
-                // Sample every 16th pixel for performance
-                for (let i = 3; i < pixels.length; i += 64) {
+                for (let i = 3; i < pixels.length; i += sampleStep * 4) {
                     if (pixels[i] === 0) {
                         transparentCount++;
                     }
                 }
 
-                const totalSampled = pixels.length / 64;
+                const totalSampled = pixels.length / (sampleStep * 4);
                 const percentage = Math.round((transparentCount / totalSampled) * 100);
                 percentLabel.textContent = `${percentage}%`;
+
+                // Secret Trigger at >85%
+                if (percentage >= 85 && !victoryTriggered) {
+                    victoryTriggered = true;
+                    showVictoryModal();
+                }
             } catch (e) {
                 percentLabel.textContent = `—`;
             }
         }
 
-        let resizeTimeout;
+        function showVictoryModal() {
+            triggerConfetti();
+            playFanfareSound();
+            const modal = document.getElementById('victory-modal');
+            const box = document.getElementById('victory-box');
+            modal.classList.remove('pointer-events-none', 'opacity-0');
+            box.classList.remove('scale-95');
+            box.classList.add('scale-100');
+        }
+
+        function closeVictoryModal() {
+            const modal = document.getElementById('victory-modal');
+            const box = document.getElementById('victory-box');
+            modal.classList.add('pointer-events-none', 'opacity-0');
+            box.classList.remove('scale-100');
+            box.classList.add('scale-95');
+        }
+
+        function updateBrushSize(val) {
+            currentBrushSize = parseInt(val);
+            brushValLabel.textContent = `${val}px`;
+            cursor.style.width = `${val}px`;
+            cursor.style.height = `${val}px`;
+        }
+
+        function setBrushShape(shape) {
+            currentBrushShape = shape;
+
+            // Update UI buttons
+            document.querySelectorAll('.shape-btn').forEach(b => {
+                b.className = 'shape-btn p-2 w-9 h-9 rounded-xl flex items-center justify-center text-xs text-slate-400 hover:text-white transition-all';
+            });
+            document.getElementById(`shape-${shape}`).className = 'shape-btn p-2 w-9 h-9 rounded-xl flex items-center justify-center text-xs bg-rose-500 text-white shadow-md transition-all';
+
+            // Update Cursor shape
+            cursor.classList.remove('rounded-full', 'rounded-none', 'shape-star');
+            if (shape === 'round') cursor.classList.add('rounded-full');
+            if (shape === 'square') cursor.classList.add('rounded-none');
+            if (shape === 'star') cursor.classList.add('shape-star');
+        }
+
+        function resetCanvas() {
+            victoryTriggered = false;
+            ctx.clearRect(0, 0, scratchCanvas.width, scratchCanvas.height);
+            drawMainImage();
+            calculateErasePercent();
+            if (instructionBanner) instructionBanner.style.opacity = '1';
+        }
+
+        function clearCanvas() {
+            ctx.clearRect(0, 0, scratchCanvas.width, scratchCanvas.height);
+            calculateErasePercent();
+        }
+
+        /* ----------------------------------------------------
+         * 6. Window Load & Resize Handlers
+         * ---------------------------------------------------- */
+        window.onload = function () {
+            initBgCanvas();
+            renderBgTheme();
+            renderFX();
+            updateBrushSize(60);
+        };
+
+        let resizeTimer;
         window.addEventListener('resize', () => {
-            clearTimeout(resizeTimeout);
-            resizeTimeout = setTimeout(() => {
-                initCanvas();
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => {
+                initBgCanvas();
+                initScratchCanvas();
             }, 200);
         });
     </script>
